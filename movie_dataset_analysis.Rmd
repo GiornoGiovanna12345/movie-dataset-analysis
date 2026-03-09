@@ -1,0 +1,138 @@
+---
+title: "Movie Dataset Analysis"
+output: html_document
+date: "2026-03-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+This report analyzes 58,788 IMDb movies from the `ggplot2movies`
+dataset. We clean, explore, visualize, and model the data to uncover 
+what makes a movie highly rated.
+
+```{r}
+library(ggplot2movies)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+data(movies)
+head(movies)
+dim(movies)
+```
+```{r}
+movies_clean <- movies %>%
+  filter(!is.na(rating), !is.na(length)) %>%
+  filter(length>=1 & length<=300)%>%
+  filter (votes>=10)
+
+ggplot(movies_clean, aes(x = rating)) +
+  geom_histogram(binwidth = 0.5, fill = "steelblue", color = "white") +
+  geom_vline(aes(xintercept = mean(rating)), color = "red", linetype = "dashed", linewidth = 1) +
+  labs(title = "Distribution of IMDb Ratings",
+       subtitle = "Red dashed line = mean rating",
+       x = "Rating", y = "Number of Movies") +
+  theme_minimal()
+```
+We filtered out movies with missing values, unrealistic lengths, 
+and fewer than 10 votes — leaving 46,939 reliable entries.
+
+Ratings follow a roughly normal distribution centered around 6, 
+suggesting most movies are perceived as average by audiences.
+```{r}
+genre_summary <- movies_clean %>%
+  select(rating, Action, Animation, Comedy, Drama, Documentary, Romance, Short) %>%
+  pivot_longer(cols = -rating, names_to = "genre", values_to = "is_genre") %>%
+  filter(is_genre == 1) %>%
+  group_by(genre) %>%
+  summarise(
+    count = n(),
+    avg_rating = mean(rating)
+  )
+
+genre_summary
+```
+
+```{r}
+ggplot(genre_summary, aes(x = reorder(genre, avg_rating), y = avg_rating, fill = genre)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  labs(title = "Average IMDb Rating by Genre",
+       x = "Genre", y = "Average Rating") +
+  theme_minimal()
+```
+
+```{r}
+ggplot(genre_summary, aes(x = reorder(genre, count), y = count, fill = genre)) +
+  geom_col(show.legend = FALSE) +
+  coord_flip() +
+  labs(title = "Number of Movies by Genre",
+       x = "Genre", y = "Count") +
+  theme_minimal()
+```
+Drama is the most common genre, but Animation earns the highest 
+average rating — likely due to survivorship bias among niche films.
+
+```{r}
+movies_clean %>%
+  filter(year >= 1920 & year <= 2005) %>%
+  group_by(year) %>%
+  summarise(avg_rating = mean(rating), count = n()) %>%
+  ggplot(aes(x = year, y = avg_rating)) +
+  geom_line(color = "steelblue") +
+  geom_smooth(method = "lm", color = "red", linetype = "dashed", se = FALSE) +
+  labs(title = "Average IMDb Rating Over Time",
+       subtitle = "Red line = linear trend",
+       x = "Year", y = "Average Rating") +
+  theme_minimal()
+```
+
+```{r}
+movies_clean %>%
+  filter(!is.na(budget), budget > 0) %>%
+  ggplot(aes(x = log10(budget), y = rating)) +
+  geom_hex(bins = 30) +
+  geom_smooth(method = "lm", color = "red", se = TRUE) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  labs(title = "Does Budget Predict Rating?",
+       subtitle = "Darker = more movies in that area",
+       x = "Budget (log10 scale)", y = "IMDb Rating") +
+  theme_minimal()
+```
+With a correlation of just 0.02, budget has virtually no relationship 
+with rating. Big budgets don't guarantee good movies.
+
+```{r}
+movies_clean %>%
+  filter(!is.na(budget), budget > 0) %>%
+  summarise(correlation = cor(log10(budget), rating))
+```
+```{r}
+model <- lm(rating ~ length + votes + Action + Comedy + Drama + Romance + Animation, 
+            data = movies_clean)
+
+library(broom)
+
+tidy(model) %>%
+  filter(term != "(Intercept)") %>%
+  ggplot(aes(x = reorder(term, estimate), y = estimate, 
+             fill = estimate > 0)) +
+  geom_col(show.legend = FALSE) +
+  geom_errorbar(aes(ymin = estimate - std.error, 
+                    ymax = estimate + std.error), width = 0.3) +
+  coord_flip() +
+  scale_fill_manual(values = c("red", "steelblue")) +
+  labs(title = "What Predicts a Movie's IMDb Rating?",
+       subtitle = "Blue = positive effect, Red = negative effect",
+       x = "", y = "Effect on Rating") +
+  theme_minimal()
+```
+Our model confirms that genre is the strongest predictor of rating. 
+Animation boosts ratings significantly while Action hurts them.
+
+## Conclusion
+
+This analysis of 46,939 IMDb movies reveals three key findings:
+genre is the strongest predictor of rating, budget has almost no 
+effect, and older movies tend to rate higher due to survivorship bias.
