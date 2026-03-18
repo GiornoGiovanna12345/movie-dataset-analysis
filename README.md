@@ -1,8 +1,11 @@
 # Movie Dataset Analysis 📽️🎬
 
-An exploratory data analysis of 58,788 IMDb movies using the `ggplot2movies` 
-dataset in R. The project cleans, visualizes, and models the data to uncover 
+An exploratory data analysis of 58,788 IMDb movies using the `ggplot2movies` dataset in R. 
+The project cleans, visualizes, and models the data to uncover 
 what makes a movie highly rated.
+
+## Live Report
+View the full analysis here: [Movie Dataset Analysis](https://giornogiovanna12345.github.io/movie-dataset-analysis/)
 
 ## Key Findings
 - Genre is the strongest predictor of rating — Animation rates highest, Action lowest
